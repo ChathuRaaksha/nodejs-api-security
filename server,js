@@ -1,0 +1,75 @@
+const express = require('express');
+const mysql = require('mysql2');
+const app = express();
+const port = 3000;
+
+// Middleware to parse JSON requests
+app.use(express.json());
+
+// MySQL connection configuration
+const db = mysql.createConnection({
+  host: 'localhost',  // replace with your DB host if different
+  user: 'root',       // replace with your DB username
+  password: '',       // replace with your DB password
+  database: 'testdb'  // replace with your DB name
+});
+
+// Connect to MySQL database
+db.connect((err) => {
+  if (err) {
+    console.error('Error connecting to the database:', err.stack);
+    return;
+  }
+  console.log('Connected to the database');
+});
+
+// Retrieve all users
+app.get('/users', (req, res) => {
+  db.query('SELECT users.id, users.name, users.email, departments.name AS department, roles.title AS role FROM users JOIN departments ON users.department_id = departments.id JOIN roles ON users.role_id = roles.id', (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(results);
+  });
+});
+
+// Update a user's department or role by user ID
+app.put('/users/:id', (req, res) => {
+  const { department_id, role_id } = req.body;
+  const userId = req.params.id;
+
+  const query = `
+    UPDATE users 
+    SET department_id = ?, role_id = ?
+    WHERE id = ?`;
+
+  db.execute(query, [department_id, role_id, userId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: 'User updated successfully' });
+  });
+});
+
+// Delete a user by ID
+app.delete('/users/:id', (req, res) => {
+  const userId = req.params.id;
+
+  db.execute('DELETE FROM users WHERE id = ?', [userId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: 'User deleted successfully' });
+  });
+});
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
+});
